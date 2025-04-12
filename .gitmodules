@@ -1,0 +1,3 @@
+[submodule "PKUFlyingPig"]
+	path = PKUFlyingPig
+	url = https://github.com/PKUFlyingPig/CS61A.git
