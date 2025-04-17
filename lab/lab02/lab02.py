@@ -83,6 +83,13 @@ def multiple(a, b):
     42
     """
     "*** YOUR CODE HERE ***"
+    def gcd(a, b):
+        while b:
+            a, b = b, a % b
+        return a
+    def lcm(a, b):
+        return a * b // gcd(a, b)
+    return lcm(a, b)
 
 
 
@@ -113,4 +120,16 @@ def cycle(f1, f2, f3):
     19
     """
     "*** YOUR CODE HERE ***"
+    def cycle_fn(n):
+        def apply_cycle(x):
+            for i in range(n):
+                if i % 3 == 0:
+                    x = f1(x)
+                elif i % 3 == 1:
+                    x = f2(x)
+                else:
+                    x = f3(x)
+            return x
+        return apply_cycle
+    return cycle_fn
 
