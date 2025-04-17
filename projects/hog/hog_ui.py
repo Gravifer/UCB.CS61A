@@ -11,10 +11,10 @@ from hog import *
 
 def play_and_print(strategy0, strategy1):
     """Simulate a game and print out what happened during the simulation."""
-    final0, final1 = play(printing_strategy(0, strategy0),
+    final0, final1 = play(printing_strategy(0, strategy0), # type: ignore
                           printing_strategy(1, strategy1),
                           sus_update_and_print, 0, 0,
-                          printing_dice(six_sided))
+                          printing_dice(six_sided)) # type: ignore
     print('The final score is Player 0:', final0, 'vs Player 1:', final1)
 
 
@@ -67,11 +67,11 @@ def sus_update_and_print(num_rolls, player_score, opponent_score, dice):
     23
     """
     print('  [', end=" ")
-    turn_score = take_turn(num_rolls, player_score, opponent_score, dice)  # Prints dice outcomes
+    turn_score = take_turn(num_rolls, player_score, opponent_score, dice)  # type: ignore # Prints dice outcomes
     print('] =>', turn_score, end='; ')
     print(player_score, '+', turn_score, '=', player_score + turn_score, end='')
     score = turn_score + player_score
-    sus_score = sus_points(score)
+    sus_score = sus_points(score) # type: ignore
     if sus_score != score:
         score = sus_score
         print(' triggering **Sus Fuss**, increasing to', score)
@@ -111,16 +111,16 @@ def interactive_strategy(who):
 def play_with(num_players):
     """Play a game with NUM_PLAYERS interactive (human) players."""
     if num_players == 0:
-        play_and_print(always_roll_5, always_roll_5)
+        play_and_print(always_roll_5, always_roll_5) # type: ignore
     elif num_players == 1:
-        play_and_print(interactive_strategy(0), always_roll_5)
+        play_and_print(interactive_strategy(0), always_roll_5) # type: ignore
     elif num_players == 2:
         play_and_print(interactive_strategy(0), interactive_strategy(1))
     else:
         print('num_players must be 0, 1, or 2.')
 
 
-@main
+@main # type: ignore
 def run(*args):
     """Select number of players and play a game."""
     import argparse
