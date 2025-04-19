@@ -63,5 +63,14 @@
     "python.analysis.include": [
         "./",
         "${workspaceFolder}/"
+    ],
+    "python.analysis.exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "**/build",
+        ".git",
+        "myenv/**",
+        "**/.ok*",
+        "PKUFlyingPig/**"
     ]
 }
