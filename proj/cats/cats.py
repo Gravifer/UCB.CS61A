@@ -271,28 +271,66 @@ def minimum_mewtations(typed, source, limit):
     >>> minimum_mewtations("ckiteus", "kittens", big_limit) # ckiteus -> kiteus -> kitteus -> kittens
     3
     """
-    # assert False, 'Remove this line'
-    if limit < 0: # Base cases should go here, you may add more base cases as needed.
-        # BEGIN
-        "*** YOUR CODE HERE ***"
+    # # assert False, 'Remove this line'
+    # if limit < 0: # Base cases should go here, you may add more base cases as needed.
+    #     # BEGIN
+    #     "*** YOUR CODE HERE ***"
+    #     return 0
+    #     # END
+    # # Recursive cases should go below here
+    # if  len(typed) == 0 or len(source) == 0: # Feel free to remove or add additional cases
+    #     # BEGIN
+    #     "*** YOUR CODE HERE ***"
+    #     return len(typed) + len(source)
+    #     # END
+    # elif typed[0] == source[0]:
+    #     return minimum_mewtations(typed[1:], source[1:], limit)
+    # else:
+    #     add = minimum_mewtations(typed, source[1:], limit - 1)
+    #     remove = minimum_mewtations(typed[1:], source, limit - 1)
+    #     substitute = minimum_mewtations(typed[1:], source[1:], limit - 1)
+    #     # BEGIN
+    #     "*** YOUR CODE HERE ***"
+    #     return 1 + min(min(add, remove), substitute)
+    #     # END
+
+    # EC from https://github.com/937miaow/CS61APersonalCode
+    if typed == source:
         return 0
-        # END
-    # Recursive cases should go below here
-    if  len(typed) == 0 or len(source) == 0: # Feel free to remove or add additional cases
-        # BEGIN
-        "*** YOUR CODE HERE ***"
-        return len(typed) + len(source)
-        # END
-    elif typed[0] == source[0]:
-        return minimum_mewtations(typed[1:], source[1:], limit)
-    else:
-        add = minimum_mewtations(typed, source[1:], limit - 1)
-        remove = minimum_mewtations(typed[1:], source, limit - 1)
-        substitute = minimum_mewtations(typed[1:], source[1:], limit - 1)
-        # BEGIN
-        "*** YOUR CODE HERE ***"
-        return 1 + min(min(add, remove), substitute)
-        # END
+    if limit < 0:
+        return 1
+    if len(typed) == 0:
+        return len(source)
+    if len(source) == 0:
+        return len(typed)
+
+        # 创建一个 DP 表
+    dp = []
+    for i in range(len(typed) + 1):
+        dp.append([float('inf')] * (len(source) + 1))
+
+    dp[0][0] = 0
+
+    # 初始化第一列和第一行
+    for i in range(1, len(typed) + 1):
+        dp[i][0] = i  # typed 的前 i 个字符与空字符串的编辑距离为 i
+    for j in range(1, len(source) + 1):
+        dp[0][j] = j  # 空字符串与 source 的前 j 个字符的编辑距离为 j
+
+    # 填充 DP 表
+    for i in range(1, len(typed) + 1):
+        for j in range(1, len(source) + 1):
+            if typed[i - 1] == source[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]  # 没有修改
+            else:
+                dp[i][j] = min(
+                    dp[i - 1][j] + 1,  # 删除
+                    dp[i][j - 1] + 1,  # 添加
+                    dp[i - 1][j - 1] + 1  # 替换
+                )
+
+    # 返回最终结果
+    return dp[len(typed)][len(source)] if dp[len(typed)][len(source)] <= limit else limit+1
 
 
 # Ignore the line below
