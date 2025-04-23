@@ -152,6 +152,28 @@ def memo_diff(diff_function):
     def memoized(typed, source, limit):
         # BEGIN PROBLEM EC
         "*** YOUR CODE HERE ***"
+        cmp_pair = (typed, source)
+        if cmp_pair not in cache.keys():
+            diff_value = diff_function(typed, source, limit)
+            cache[cmp_pair] = (diff_value, limit)
+        else:
+            cache_limit = cache[cmp_pair][1]
+            if limit > cache_limit:
+                diff_value = diff_function(typed, source, limit)
+                cache[cmp_pair] = (diff_value, limit)
+        return cache[cmp_pair][0]
+        # if (typed, source) not in cache:
+        #     value = diff_function(typed, source, limit)
+        #     cache[(typed, source)] = (value, limit)
+        #     return value
+        # else:
+        #     val, lim = cache[(typed, source)]
+        #     if limit <= lim:
+        #         return val
+        #     else:
+        #         new_val = diff_function(typed, source, limit)
+        #         cache[(typed, source)] = (new_val, limit)
+        #         return new_val
         # END PROBLEM EC
 
     return memoized
@@ -161,7 +183,7 @@ def memo_diff(diff_function):
 # Phase 2 #
 ###########
 
-
+@memo
 def autocorrect(typed_word, word_list, diff_function, limit):
     """Returns the element of WORD_LIST that has the smallest difference
     from TYPED_WORD based on DIFF_FUNCTION. If multiple words are tied for the smallest difference,
@@ -231,6 +253,7 @@ def furry_fixes(typed, source, limit):
     # END PROBLEM 6
 
 
+@memo_diff
 def minimum_mewtations(typed, source, limit):
     """A diff function for autocorrect that computes the edit distance from TYPED to SOURCE.
     This function takes in a string TYPED, a string SOURCE, and a number LIMIT.
@@ -276,6 +299,7 @@ def minimum_mewtations(typed, source, limit):
 minimum_mewtations = count(minimum_mewtations)
 
 
+@memo_diff
 def final_diff(typed, source, limit):
     """A diff function that takes in a string TYPED, a string SOURCE, and a number LIMIT.
     If you implement this function, it will be used."""
