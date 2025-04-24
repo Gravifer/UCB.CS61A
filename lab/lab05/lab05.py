@@ -27,10 +27,19 @@ def insert_items(s, before, after):
     True
     """
     "*** YOUR CODE HERE ***"
-    for i in range(len(s)):
+    # for i in range(len(s)):
+    #     if s[i] == before:
+    #         print(f"DEBUG: s[{i}]==", s[i])
+    #         s.insert(i + 1, after)
+    #         i.next()
+    #         print(f"DEBUG: s==", s, f"\ts[{i}]==", s[i])
+    # return s
+    i = 0
+    while i < len(s):
         if s[i] == before:
             s.insert(i + 1, after)
             i += 1
+        i += 1
     return s
 
 
@@ -45,12 +54,12 @@ def group_by(s, fn):
     {9: [-3, 3], 4: [-2, 2], 1: [-1, 1], 0: [0]}
     """
     grouped = {}
-    for ____ in ____:
-        key = ____
+    for val in s:
+        key = fn(val)
         if key in grouped:
-            ____
+            grouped[key].append(val)
         else:
-            grouped[key] = ____
+            grouped[key] = [val]
     return grouped
 
 
@@ -76,6 +85,22 @@ def count_occurrences(t, n, x):
     2
     """
     "*** YOUR CODE HERE ***"
+    calls, occurrences = 0, 0
+    # while calls < n:
+    #     try:
+    #         val = next(t)
+    #         calls += 1
+    #         if val == x:
+    #             occurrences += 1
+    #     except StopIteration:
+    #         break
+    for val in t:
+        calls += 1
+        if val == x:
+            occurrences += 1
+        if calls >= n:
+            break
+    return occurrences
 
 
 def repeated(t, k):
@@ -99,6 +124,18 @@ def repeated(t, k):
     """
     assert k > 1
     "*** YOUR CODE HERE ***"
+    streak_val, streak = None, 0
+    calls = 0
+    for val in t:
+        calls += 1
+        if val == streak_val:
+            streak += 1
+            if streak == k:
+                return val
+        else:
+            streak_val = val
+            streak = 1
+    return None
 
 
 def sprout_leaves(t, leaves):
