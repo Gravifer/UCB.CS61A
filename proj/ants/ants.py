@@ -1,6 +1,7 @@
 """Ants Vs. SomeBees."""
 
 import random
+from turtle import up
 from ucb import main, interact, trace
 from collections import OrderedDict
 
@@ -27,6 +28,8 @@ class Place:
         # Phase 1: Add an entrance to the exit
         # BEGIN Problem 2
         "*** YOUR CODE HERE ***"
+        if exit is not None:
+            exit.entrance = self
         # END Problem 2
 
     def add_insect(self, insect):
@@ -171,6 +174,7 @@ class ThrowerAnt(Ant):
     damage = 1
     # ADD/OVERRIDE CLASS ATTRIBUTES HERE
     food_cost = 3
+    lower_bound, upper_bound = 0, float('inf')
 
     def nearest_bee(self):
         """Return a random Bee from the nearest Place (excluding the Hive) that contains Bees and is reachable from
@@ -179,7 +183,39 @@ class ThrowerAnt(Ant):
         This method returns None if there is no such Bee (or none in range).
         """
         # BEGIN Problem 3 and 4
-        return random_bee(self.place.bees) # REPLACE THIS LINE
+        
+        place = self.place
+        distance = 0
+
+        while place is not None and not place.is_hive:
+            if self.lower_bound <= distance <= self.upper_bound and place.bees:
+                return random_bee(place.bees)
+            place = place.entrance
+            distance += 1
+
+        return None
+        
+        __recursive_version = '''
+        def nearest_bee_location(place, distance):
+            """Return the nearest Place that contains a Bee and is reachable from the ThrowerAnt's Place."""
+            print("DEBUG:", [self.lower_bound, distance, self.upper_bound])
+            def place_is_invalid(place):
+                """Return True if the Place is valid for the ThrowerAnt."""
+                return any([
+                    place is None,
+                    place.is_hive, 
+                    not (self.lower_bound <= distance <= self.upper_bound)
+                ])
+            if place_is_invalid(place):
+                return None
+            if place.bees:
+                return place
+            if place.entrance is not None:
+                return nearest_bee_location(place.entrance, distance + 1)
+            return None
+        if (target_place := nearest_bee_location(self.place, 0)) is not None:
+            return random_bee(target_place.bees)  # REPLACE THIS LINE
+        '''
         # END Problem 3 and 4
 
     def throw_at(self, target):
@@ -211,7 +247,8 @@ class ShortThrower(ThrowerAnt):
     food_cost = 2
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 4
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    upper_bound = 3
     # END Problem 4
 
 
@@ -222,7 +259,8 @@ class LongThrower(ThrowerAnt):
     food_cost = 2
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 4
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    lower_bound = 5
     # END Problem 4
 
 
@@ -234,7 +272,7 @@ class FireAnt(Ant):
     food_cost = 5
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 5
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
     # END Problem 5
 
     def __init__(self, health=3):
@@ -250,14 +288,65 @@ class FireAnt(Ant):
         """
         # BEGIN Problem 5
         "*** YOUR CODE HERE ***"
+        self_place = self.place
+        def scorch_at(target, amount=self.damage):
+            """damage the target Bee by the FireAnt's damage amount."""
+            if target is not None:
+                target.reduce_health(amount)
+        
+        # Call the parent class's reduce_health method
+        super().reduce_health(amount)
+
+        # Do additional damage to the bees if it dies
+        if self.health <= 0:
+            amount += self.damage
+            if self.place is not None:
+                self.place.remove_insect(self)
+
+        for bee in list(self_place.bees):
+            scorch_at(bee, amount)
         # END Problem 5
 
 # BEGIN Problem 6
 # The WallAnt class
+class WallAnt(Ant):
+    """WallAnt is a wall that blocks the path of bees."""
+
+    name = 'Wall'
+    food_cost = 4
+    implemented = True   # Set to True to view in the GUI
+
+    def __init__(self, health=4):
+        super().__init__(health)
 # END Problem 6
 
 # BEGIN Problem 7
 # The HungryAnt Class
+class HungryAnt(Ant):
+    """HungryAnt eats a bee when it get too close."""
+
+    name = 'Hungry'
+    food_cost = 4
+    implemented = True   # Set to True to view in the GUI
+    chew_cooldown, cooldown = 3, 0
+
+    def __init__(self, health=1):
+        super().__init__(health)
+        # self.cooldown = 0
+        # self.chew_cooldown = 3
+
+    def chew_up(self, target):
+        """Chew up the target Bee."""
+        if target is not None:
+            target.reduce_health(self.damage)
+            self.cooldown = self.chew_cooldown
+
+    def action(self, gamestate):
+        """Chew up a random bee at the same place, if not chewing."""
+        if self.cooldown == 0:
+            self.chew_up(random_bee(self.place.bees))
+        else :
+            self.cooldown -= 1
 # END Problem 7
 
 
