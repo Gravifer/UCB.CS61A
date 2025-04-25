@@ -500,12 +500,12 @@ class QueenAnt(ThrowerAnt):
         place = self.place.exit
         while place is not None:
             if place.ant and not place.ant.doubled:
-                place.ant.damage = place.ant.damage*2
+                place.ant.damage *= 2
                 place.ant.doubled = True
             if isinstance(place.ant, ContainerAnt) \
               and place.ant.ant_contained\
               and not place.ant.ant_contained.doubled:
-                place.ant.ant_contained.damage = place.ant.ant_contained.damage*2
+                place.ant.ant_contained.damage *= 2
                 place.ant.ant_contained.doubled = True
             place = place.exit
         # END Problem 12
@@ -533,12 +533,64 @@ class SlowThrower(ThrowerAnt):
     name = 'Slow'
     food_cost = 6
     # BEGIN Problem EC 1
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    slowing_length = 5
     # END Problem EC 1
 
     def throw_at(self, target):
         # BEGIN Problem EC 1
         "*** YOUR CODE HERE ***"
+        length = self.slowing_length
+        def make_slow(action, bee):
+            """Return a new action method that calls ACTION every other turn.
+
+            action -- An action method of some Bee
+            """
+            
+            def slow_action(gamestate):
+                if gamestate.time % 2 == 0:
+                    action(gamestate)
+                else :
+                    print(f"DEBUG: gamestate.time = {gamestate.time} is odd. {bee} freezes for this turn")
+            return slow_action  
+
+        if target is not None:
+            """make target slowed for slowing_turns.
+            """
+            # target_action = target.action
+            # target.slowed_turns = self.slowing_turns
+            # def slowed_action(bee, gamestate):
+            #     if target.slowed_turns == 0 :
+            #         bee.action = target_action
+            #         return bee.action()
+            #     target.slowed_turns -= 1
+            #     if gamestate.time % 2 == 0 :
+            #         return target_action(bee, gamestate)
+            #     else :
+            #         return None
+            # target.action = slowed_action
+            if not "slowed" in target.status or target.status["slowed"] == 0 :
+                print(f"DEBUG: Slowing {target} for {length} turns")
+                target.status["slowed"] = length
+
+                base_action = target.action
+                alt_action = make_slow(base_action, target)
+                
+                def alt_status(gamestate):
+                    # nonlocal length
+                    # if length > 0:
+                    #     alt_action(gamestate)
+                    #     length -= 1
+                    if target.status["slowed"] > 0:
+                        alt_action(gamestate)
+                        target.status["slowed"] -= 1
+                    else:
+                        base_action(gamestate)
+
+                target.action = alt_status
+            else :
+                print("DEBUG: {0} already slowed ({1} turns remaining). Renewing to {2} turns.".format(target, target.status["slowed"], length))
+                target.status["slowed"] = length
         # END Problem EC 1
 
 
@@ -624,6 +676,9 @@ class Bee(Insect):
     damage = 1
     is_waterproof = True # don't add custom attributes when not asked to
 
+    def __init__(self, health, place=None):
+        super().__init__(health, place)
+        self.status = {}
 
     def sting(self, ant):
         """Attack an ANT, reducing its health by 1."""
