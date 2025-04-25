@@ -66,6 +66,9 @@ class Insect:
         self.id = Insect.next_id
         Insect.next_id += 1
 
+        # custom
+        self.status = {}
+
     def reduce_health(self, amount):
         """Reduce health by AMOUNT, and remove the insect from its place if it
         has no health remaining. Decorated in gui.py for GUI support.
@@ -96,6 +99,30 @@ class Insect:
 
     def remove_from(self, place):
         self.place = None
+
+    # custom
+    def apply_status(self, make_status, length, status_flag):
+        """Apply a status that lasts for LENGTH turns."""
+        if not status_flag in self.status or self.status[status_flag] == 0 :
+            print(f"DEBUG: Applying {status_flag} to {self} for {length} turns")
+            self.status[status_flag] = length
+        
+            old_action = self.action
+            new_action = make_status(self.action, self)
+
+            def alt_status(gamestate):
+                nonlocal length
+                if self.status[status_flag] > 0:
+                    new_action(gamestate)
+                    self.status[status_flag] -= 1
+                else:
+                    old_action(gamestate)
+
+            self.action = alt_status
+
+        else :
+            print("DEBUG: {0} already {1} ({2} turns remaining). Renewing to {3} turns.".format(self, status_flag, self.status[status_flag], length))
+            self.status[status_flag] = length
 
     def __repr__(self):
         cname = type(self).__name__
@@ -527,6 +554,7 @@ class QueenAnt(ThrowerAnt):
 # Extra Challenge #
 ################
 
+
 class SlowThrower(ThrowerAnt):
     """ThrowerAnt that causes Slow on Bees."""
 
@@ -537,11 +565,11 @@ class SlowThrower(ThrowerAnt):
     slowing_length = 5
     # END Problem EC 1
 
-    def throw_at(self, target):
+    def throw_at(self, target:Insect):
         # BEGIN Problem EC 1
         "*** YOUR CODE HERE ***"
         length = self.slowing_length
-        def make_slow(action, bee):
+        def make_slow(action, bee:Insect):
             """Return a new action method that calls ACTION every other turn.
 
             action -- An action method of some Bee
@@ -557,40 +585,7 @@ class SlowThrower(ThrowerAnt):
         if target is not None:
             """make target slowed for slowing_turns.
             """
-            # target_action = target.action
-            # target.slowed_turns = self.slowing_turns
-            # def slowed_action(bee, gamestate):
-            #     if target.slowed_turns == 0 :
-            #         bee.action = target_action
-            #         return bee.action()
-            #     target.slowed_turns -= 1
-            #     if gamestate.time % 2 == 0 :
-            #         return target_action(bee, gamestate)
-            #     else :
-            #         return None
-            # target.action = slowed_action
-            if not "slowed" in target.status or target.status["slowed"] == 0 :
-                print(f"DEBUG: Slowing {target} for {length} turns")
-                target.status["slowed"] = length
-
-                base_action = target.action
-                alt_action = make_slow(base_action, target)
-                
-                def alt_status(gamestate):
-                    # nonlocal length
-                    # if length > 0:
-                    #     alt_action(gamestate)
-                    #     length -= 1
-                    if target.status["slowed"] > 0:
-                        alt_action(gamestate)
-                        target.status["slowed"] -= 1
-                    else:
-                        base_action(gamestate)
-
-                target.action = alt_status
-            else :
-                print("DEBUG: {0} already slowed ({1} turns remaining). Renewing to {2} turns.".format(target, target.status["slowed"], length))
-                target.status["slowed"] = length
+            target.apply_status(make_slow, length, "slow") # custom instance method at Insect
         # END Problem EC 1
 
 
@@ -674,11 +669,7 @@ class Bee(Insect):
 
     name = 'Bee'
     damage = 1
-    is_waterproof = True # don't add custom attributes when not asked to
-
-    def __init__(self, health, place=None):
-        super().__init__(health, place)
-        self.status = {}
+    is_waterproof = True
 
     def sting(self, ant):
         """Attack an ANT, reducing its health by 1."""
