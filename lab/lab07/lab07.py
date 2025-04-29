@@ -112,15 +112,22 @@ def without(s, i):
     True
     """
     "*** YOUR CODE HERE ***"
-    if i == 0: # this is the one to remove
-        return s.rest
-    elif s.rest is Link.empty: # reached the end of the list
-        return s
-    else:
-        t = deepcopy(s) # is this necessary? This makes copies every time in the recursion
-        t.rest = without(t.rest, i - 1)
-        return t
-    # return s if i >= len(s) else without(s.rest, i - 1) if i > 0 else s.rest
+    # if i == 0: # this is the one to remove
+    #     return s.rest
+    # elif s.rest is Link.empty: # reached the end of the list
+    #     return s
+    # else:
+    #     t = deepcopy(s) # is this necessary? This makes copies every time in the recursion
+    #     t.rest = without(t.rest, i - 1)
+    #     return t
+    def helper(s, i):
+        if s is Link.empty:
+            return Link.empty
+        if i == 0:
+            return s.rest  # skip the current node
+        return Link(s.first, helper(s.rest, i - 1))  # rebuild head as needed
+
+    return helper(s, i)
 
 
 def duplicate_link(s, val):
