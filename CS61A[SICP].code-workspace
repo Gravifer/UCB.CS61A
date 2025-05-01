@@ -28,6 +28,11 @@
 			"--pch-storage=disk",
 			"--use-dirty-headers=0"
 		],
-		"hide-files.files": []
+		"hide-files.files": [],
+		"cSpell.words": [
+			"caddr",
+			"cadr",
+			"cddr"
+		]
 	}
 }
