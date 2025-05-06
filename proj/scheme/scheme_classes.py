@@ -1,4 +1,5 @@
 import builtins
+from math import e
 
 from pair import *
 
@@ -27,12 +28,21 @@ class Frame:
         """Define Scheme SYMBOL to have VALUE."""
         # BEGIN PROBLEM 1
         "*** YOUR CODE HERE ***"
+        self.bindings[symbol] = value
+        # If the symbol is already defined in the current frame, 
+        # it will be overwritten. This is the expected behavior in Scheme.
         # END PROBLEM 1
 
     def lookup(self, symbol):
         """Return the value bound to SYMBOL. Errors if SYMBOL is not found."""
         # BEGIN PROBLEM 1
         "*** YOUR CODE HERE ***"
+        env = self
+        while env is not None:
+            if symbol in env.bindings:
+                return env.bindings[symbol]
+            env = env.parent
+        # If we reach here, the symbol was not found in any frame.
         # END PROBLEM 1
         raise SchemeError('unknown identifier: {0}'.format(symbol))
 
