@@ -76,5 +76,6 @@
     ],
     "python.analysis.completeFunctionParens": true,
     "python.analysis.autoImportCompletions": true,
-    "python.analysis.aiCodeActions": {}
+    "python.analysis.aiCodeActions": {},
+    "cSpell.enabled": false
 }
