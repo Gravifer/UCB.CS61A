@@ -45,26 +45,30 @@ def scheme_apply(procedure, args, env):
     if isinstance(procedure, BuiltinProcedure):
         # BEGIN PROBLEM 2
         "*** YOUR CODE HERE ***"
-        # basic version:
-        py_args = []
-        while args is not nil:
-            py_args.append(args.first)
-            args = args.rest
-        if procedure.need_env:
-            py_args.append(env)
+        # # basic version:
+        # py_args = []
+        # while args is not nil:
+        #     py_args.append(args.first)
+        #     args = args.rest
+        # if procedure.need_env:
+        #     py_args.append(env)
 
         # ! monkey patching version:
-        # def pair_init__(obj):
-        #     """Convert the Pair object to an iterable for use with list()."""
-        #     current = obj
-        #     while isinstance(current, Pair):
-        #         yield current.first
-        #         current = current.rest
-        #     # If `rest` is not `nil`, we should raise an error for improper list
-        #     if current is not nil:
-        #         raise TypeError('ill-formed list (not properly terminated with nil)')
-        # Pair.__iter__ = pair_init__
-        # py_args = list(args) + ([env] if procedure.need_env else [])
+        if not hasattr(scheme_apply, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+            def _pair_iter__(obj):
+                """Convert the Pair object to an iterable for use with list()."""
+                current = obj
+                while isinstance(current, Pair):
+                    yield current.first
+                    current = current.rest
+                if current is nil:
+                    return
+                # If `rest` is not `nil`, we should raise an error for improper list
+                if current is not nil:
+                    raise TypeError('ill-formed list (not properly terminated with nil)')
+            Pair.__iter__ = _pair_iter__
+            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+        py_args = list(args) + ([env] if procedure.need_env else [])
 
         # END PROBLEM 2
         try:
