@@ -36,6 +36,9 @@
 		],
 		"frameIndentRainbow.excludedLanguages": [			
 			"plaintext"
-		]
+		],
+		"[scheme]": {
+			"editor.tabSize": 2
+		}
 	}
 }

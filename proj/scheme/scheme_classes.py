@@ -29,6 +29,7 @@ class Frame:
         # BEGIN PROBLEM 1
         "*** YOUR CODE HERE ***"
         self.bindings[symbol] = value
+        #// return self # attempt to provide a fluent interface # q 01 doesn't like this; whatever
         # If the symbol is already defined in the current frame, 
         # it will be overwritten. This is the expected behavior in Scheme.
         # END PROBLEM 1
@@ -62,6 +63,35 @@ class Frame:
             raise SchemeError('Incorrect number of arguments to function call')
         # BEGIN PROBLEM 8
         "*** YOUR CODE HERE ***"
+        child_frame = Frame(self)
+
+        # basic version
+        # while formals is not nil:
+        #     if isinstance(formals.first, str):
+        #         child_frame.define(formals.first, vals.first)
+        #     else:
+        #         raise SchemeError('Invalid formal parameter: {0}'.format(formals.first))
+        #     formals = formals.rest
+        #     vals = vals.rest
+    
+        # ! monkey patching version:
+        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+            def _pair_iter__(obj):
+                """Convert the Pair object to an iterable for use with list()."""
+                current = obj
+                while isinstance(current, Pair):
+                    yield current.first
+                    current = current.rest
+                if current is nil:
+                    return
+                # If `rest` is not `nil`, we should raise an error for improper list
+                if current is not nil:
+                    raise TypeError('ill-formed list (not properly terminated with nil)')
+            Pair.__iter__ = _pair_iter__
+            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+        [child_frame.define(formal, val) for formal, val in zip(formals, vals)]
+
+        return child_frame
         # END PROBLEM 8
 
 ##############

@@ -49,7 +49,7 @@ def scheme_apply(procedure, args, env):
     if isinstance(procedure, BuiltinProcedure):
         # BEGIN PROBLEM 2
         "*** YOUR CODE HERE ***"
-        # # basic version:
+        # * basic version:
         # py_args = []
         # while args is not nil:
         #     py_args.append(args.first)
@@ -58,7 +58,7 @@ def scheme_apply(procedure, args, env):
         #     py_args.append(env)
 
         # ! monkey patching version:
-        if not hasattr(scheme_apply, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
             def _pair_iter__(obj):
                 """Convert the Pair object to an iterable for use with list()."""
                 current = obj
@@ -73,7 +73,6 @@ def scheme_apply(procedure, args, env):
             Pair.__iter__ = _pair_iter__
             nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
         py_args = list(args) + ([env] if procedure.need_env else [])
-
         # END PROBLEM 2
         try:
             # BEGIN PROBLEM 2
@@ -85,10 +84,60 @@ def scheme_apply(procedure, args, env):
     elif isinstance(procedure, LambdaProcedure):
         # BEGIN PROBLEM 9
         "*** YOUR CODE HERE ***"
+        # ! monkey patching version:
+        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+            def _pair_iter__(obj):
+                """Convert the Pair object to an iterable for use with list()."""
+                current = obj
+                while isinstance(current, Pair):
+                    yield current.first
+                    current = current.rest
+                if current is nil:
+                    return
+                # If `rest` is not `nil`, we should raise an error for improper list
+                if current is not nil:
+                    raise TypeError('ill-formed list (not properly terminated with nil)')
+            Pair.__iter__ = _pair_iter__
+            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+        lambdaFrame = procedure.env.make_child_frame(procedure.formals, args)
+        lambdaFrame.define('_self', procedure)
+        # // print("DEBUG: lambdaFrame created: ", lambdaFrame)
+        # the created frame remains a child to the defining frame; 
+        # this is called lexical scoping. 
+        # It is still possible to transfer it to the calling scope, 
+        # with bindings of its former ancestors added,
+        # but this optimization is not intended here.
+        # the other possibility is to inherit the calling scope (which would be wrong for this assignment)
+        try:
+            return eval_all(procedure.body, lambdaFrame)
+        except TypeError as err:
+            raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
         # END PROBLEM 9
-    elif isinstance(procedure, MuProcedure):
+    elif isinstance(procedure, MuProcedure): # ! Mu means something else in the literature!
         # BEGIN PROBLEM 11
         "*** YOUR CODE HERE ***"
+        # ! monkey patching version:
+        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+            def _pair_iter__(obj):
+                """Convert the Pair object to an iterable for use with list()."""
+                current = obj
+                while isinstance(current, Pair):
+                    yield current.first
+                    current = current.rest
+                if current is nil:
+                    return
+                # If `rest` is not `nil`, we should raise an error for improper list
+                if current is not nil:
+                    raise TypeError('ill-formed list (not properly terminated with nil)')
+            Pair.__iter__ = _pair_iter__
+            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+        muFrame = env.make_child_frame(procedure.formals, args)
+        muFrame.define('_self', procedure)
+        # this is called dynamic scoping
+        try:
+            return eval_all(procedure.body, muFrame)
+        except TypeError as err:
+            raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
         # END PROBLEM 11
     else:
         assert False, "Unexpected procedure: {}".format(procedure)
@@ -109,7 +158,14 @@ def eval_all(expressions, env):
     2
     """
     # BEGIN PROBLEM 6
-    return scheme_eval(expressions.first, env) # replace this with lines of your own code
+    #// return scheme_eval(expressions.first, env) # replace this with lines of your own code
+    if expressions is nil:
+        return None
+    exprs = expressions
+    while exprs.rest is not nil:
+        scheme_eval(exprs.first, env)
+        exprs = exprs.rest
+    return scheme_eval(exprs.first, env, True)
     # END PROBLEM 6
 
 

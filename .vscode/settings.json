@@ -77,5 +77,8 @@
     "python.analysis.completeFunctionParens": true,
     "python.analysis.autoImportCompletions": true,
     "python.analysis.aiCodeActions": {},
-    "cSpell.enabled": false
+    "cSpell.enabled": false,
+    "[scheme]": {
+        "editor.tabSize": 2
+    }
 }
