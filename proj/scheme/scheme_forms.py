@@ -128,6 +128,29 @@ def do_and_form(expressions, env):
     """
     # BEGIN PROBLEM 12
     "*** YOUR CODE HERE ***"
+    # ! monkey patching version:
+    if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+        def _pair_iter__(obj):
+            """Convert the Pair object to an iterable for use with list()."""
+            current = obj
+            while isinstance(current, Pair):
+                yield current.first
+                current = current.rest
+            if current is nil:
+                return
+            # If `rest` is not `nil`, we should raise an error for improper list
+            if current is not nil:
+                raise TypeError('ill-formed list (not properly terminated with nil)')
+        Pair.__iter__ = _pair_iter__
+        nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+    if expressions is nil:
+        return True
+    for expr in expressions:
+        if is_scheme_false(val:=scheme_eval(expr, env)):
+            return False
+        else:
+            continue
+    return val
     # END PROBLEM 12
 
 def do_or_form(expressions, env):
@@ -146,6 +169,29 @@ def do_or_form(expressions, env):
     """
     # BEGIN PROBLEM 12
     "*** YOUR CODE HERE ***"
+    # ! monkey patching version:
+    if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+        def _pair_iter__(obj):
+            """Convert the Pair object to an iterable for use with list()."""
+            current = obj
+            while isinstance(current, Pair):
+                yield current.first
+                current = current.rest
+            if current is nil:
+                return
+            # If `rest` is not `nil`, we should raise an error for improper list
+            if current is not nil:
+                raise TypeError('ill-formed list (not properly terminated with nil)')
+        Pair.__iter__ = _pair_iter__
+        nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+    if expressions is nil:
+        return False
+    for expr in expressions:
+        if is_scheme_true(val:=scheme_eval(expr, env)):
+            return val
+        else:
+            continue
+    return False
     # END PROBLEM 12
 
 def do_cond_form(expressions, env):
@@ -166,6 +212,10 @@ def do_cond_form(expressions, env):
         if is_scheme_true(test):
             # BEGIN PROBLEM 13
             "*** YOUR CODE HERE ***"
+            if clause.rest is nil:
+                return test
+            else:
+                return eval_all(clause.rest, env)
             # END PROBLEM 13
         expressions = expressions.rest
 
@@ -190,6 +240,12 @@ def make_let_frame(bindings, env):
     names = vals = nil
     # BEGIN PROBLEM 14
     "*** YOUR CODE HERE ***"
+    while bindings is not nil:
+        binding = bindings.first
+        validate_form(binding, 2, 2)
+        names, vals = Pair(binding.first, names), Pair(scheme_eval(binding.rest.first, env), vals)
+        bindings = bindings.rest
+    validate_formals(names)
     # END PROBLEM 14
     return env.make_child_frame(names, vals)
 
