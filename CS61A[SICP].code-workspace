@@ -29,16 +29,101 @@
 			"--use-dirty-headers=0"
 		],
 		"hide-files.files": [],
-		"cSpell.words": [
-			"caddr",
-			"cadr",
-			"cddr"
-		],
 		"frameIndentRainbow.excludedLanguages": [			
 			"plaintext"
 		],
 		"[scheme]": {
 			"editor.tabSize": 2
+		},
+		"cSpell.words": [
+			"caar",
+			"caddr",
+			"cadr",
+			"cdar",
+			"cddr",
+			"listp",
+			"symbolp"
+		],
+		"material-icon-theme.files.customClones": [
+			{
+			  "name": "ok-exec",
+			  "base": "smarty",
+			  "color": "teal-500",
+			  "fileNames": ["ok"]
+			},
+			{
+			  "name": "ok-test-config",
+			  "base": "test-ts",
+			  "color": "teal-500",
+			  "fileExtensions": ["ok"]
+			}
+		],
+		"material-icon-theme.files.associations": {
+			"scheme_reader": "exe",
+			"scheme": "exe",
+			"*.rst": "python-misc"
+		},
+		"material-icon-theme.folders.customClones": [
+			{
+				"name": "cs61a-hw",
+				"base": "project",
+				"color": "light-green-500",
+				"lightColor": "light-green-700",
+				"folderNames": ["homework","hw","hws"],
+				"rootFolderNames": ["hw"]
+			},
+			{
+				"name": "cs61a-labs",
+				"base": "project",
+				"color": "yellow-700",
+				"folderNames": ["lab","labs"],
+				"rootFolderNames": ["lab"]
+			},
+			{
+				"name": "cs61a-exams",
+				"base": "project",
+				"color": "orange-500",
+				"folderNames": ["exam","exams"],
+				"rootFolderNames": ["exam"]
+			},
+			{
+				"name": "cs61a-example-src",
+				"base": "src",
+				"color": "teal-500",
+				"folderNames": ["scalc","parallel","mapreduce"]
+			},
+			{
+				"name": "cs61a-hw-src",
+				"base": "src",
+				"color": "light-green-500",
+				"lightColor": "light-green-700",
+				"folderNames": ["hw00","hw01","hw02","hw03","hw04","hw05","hw06","hw07","hw08","hw09","hw10","hw11","hw12","hw13","hw14","hw15","hw16","hw17","hw18","hw19","hw20"],
+			},
+			{
+				"name": "cs61a-proj-src",
+				"base": "src",
+				"color": "blue-500",
+				"folderNames": ["ants","cats","hog","scheme"]
+			},
+			{
+				"name": "cs61a-lab-src",
+				"base": "src",
+				"color": "yellow-700",
+				"folderNames": ["lab00","lab01","lab02","lab03","lab04","lab05","lab06","lab07","lab08","lab09","lab10","lab11","lab12","lab13","lab14","lab15"]
+			},
+			{
+				"name": "cs61a-scheme-editor",
+				"base": "components",
+				"color": "red-500",
+				"folderNames": ["editor"],
+				"rootFolderNames": ["editor"]
+			}
+		],
+		"material-icon-theme.folders.associations": {
+			"proj": "project",
+			"gui_files": "ui",
+			"PKUFlyingPig": "git",
+			"abstract_turtle": "components"
 		}
 	}
 }
