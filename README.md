@@ -8,3 +8,8 @@ Learn to:
 - [x] Emulate the object metaphor in S-Expressions
 - [x] Understand Python dunder tricks
 - [x] Design DSLs and start to understand parsing
+
+## Status
+
+- [x] Completed all homeworks, labs and projects
+- [ ] Project scheme has two extra credit questions unsolved
