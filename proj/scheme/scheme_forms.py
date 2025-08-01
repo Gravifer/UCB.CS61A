@@ -3,6 +3,22 @@ from scheme_utils import *
 from scheme_classes import *
 from scheme_builtins import *
 
+# ! monkey patching Pair and nil
+if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+    def _pair_iter__(obj):
+        """Convert the Pair object to an iterable for use with list()."""
+        current = obj
+        while isinstance(current, Pair):
+            yield current.first
+            current = current.rest
+        if current is nil:
+            return
+        # If `rest` is not `nil`, we should raise an error for improper list
+        if current is not nil:
+            raise TypeError('ill-formed list (not properly terminated with nil)')
+    Pair.__iter__ = _pair_iter__
+    nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+
 #################
 # Special Forms #
 #################
@@ -107,10 +123,10 @@ def do_if_form(expressions, env):
     3
     """
     validate_form(expressions, 2, 3)
-    if is_scheme_true(scheme_eval(expressions.first, env)):
-        return scheme_eval(expressions.rest.first, env)
+    if is_scheme_true(scheme_eval(expressions.first, env, False)):
+        return scheme_eval(expressions.rest.first, env, True)
     elif len(expressions) == 3:
-        return scheme_eval(expressions.rest.rest.first, env)
+        return scheme_eval(expressions.rest.rest.first, env, True)
 
 def do_and_form(expressions, env):
     """Evaluate a (short-circuited) and form.
@@ -128,28 +144,18 @@ def do_and_form(expressions, env):
     """
     # BEGIN PROBLEM 12
     "*** YOUR CODE HERE ***"
-    # ! monkey patching version:
-    if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
-        def _pair_iter__(obj):
-            """Convert the Pair object to an iterable for use with list()."""
-            current = obj
-            while isinstance(current, Pair):
-                yield current.first
-                current = current.rest
-            if current is nil:
-                return
-            # If `rest` is not `nil`, we should raise an error for improper list
-            if current is not nil:
-                raise TypeError('ill-formed list (not properly terminated with nil)')
-        Pair.__iter__ = _pair_iter__
-        nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
     if expressions is nil:
         return True
-    for expr in expressions:
-        if is_scheme_false(val:=scheme_eval(expr, env)):
+    # for expr in expressions: #! monkey patched Pair required
+    #     if is_scheme_false(val := scheme_eval(expr, env)):
+    #         return False
+    itr = iter(expressions) #! monkey patched Pair required
+    expr = next(itr, nil)
+    while expr is not nil: # iterate through the Pair
+        nxt = next(itr, nil) # get the next expression
+        if is_scheme_false(val := scheme_eval(expr, env, nxt is nil)): #* tail call optimization
             return False
-        else:
-            continue
+        expr = nxt # move to the next expression
     return val
     # END PROBLEM 12
 
@@ -169,28 +175,20 @@ def do_or_form(expressions, env):
     """
     # BEGIN PROBLEM 12
     "*** YOUR CODE HERE ***"
-    # ! monkey patching version:
-    if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
-        def _pair_iter__(obj):
-            """Convert the Pair object to an iterable for use with list()."""
-            current = obj
-            while isinstance(current, Pair):
-                yield current.first
-                current = current.rest
-            if current is nil:
-                return
-            # If `rest` is not `nil`, we should raise an error for improper list
-            if current is not nil:
-                raise TypeError('ill-formed list (not properly terminated with nil)')
-        Pair.__iter__ = _pair_iter__
-        nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
     if expressions is nil:
         return False
-    for expr in expressions:
-        if is_scheme_true(val:=scheme_eval(expr, env)):
+    # for expr in expressions: #! monkey patched Pair required
+    #     if is_scheme_true(val:=scheme_eval(expr, env)):
+    #         return val
+    #     else:
+    #         continue
+    itr = iter(expressions) #! monkey patched Pair required
+    expr = next(itr, nil)
+    while expr is not nil: # iterate through the Pair
+        nxt = next(itr, nil) # get the next expression
+        if is_scheme_true(val := scheme_eval(expr, env, nxt is nil)): #* tail call optimization
             return val
-        else:
-            continue
+        expr = nxt # move to the next expression
     return False
     # END PROBLEM 12
 

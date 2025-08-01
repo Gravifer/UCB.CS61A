@@ -1,3 +1,5 @@
+from collections.abc import Callable, Iterable
+from typing import Any
 import sys
 
 from pair import *
@@ -6,11 +8,27 @@ from ucb import main, trace
 
 import scheme_forms
 
+# ! monkey patching Pair and nil
+if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
+    def _pair_iter__(obj):
+        """Convert the Pair object to an iterable for use with list()."""
+        current = obj
+        while isinstance(current, Pair):
+            yield current.first
+            current = current.rest
+        if current is nil:
+            return
+        # If `rest` is not `nil`, we should raise an error for improper list
+        if current is not nil:
+            raise TypeError('ill-formed list (not properly terminated with nil)')
+    Pair.__iter__ = _pair_iter__
+    nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
+
 ##############
 # Eval/Apply #
 ##############
 
-def scheme_eval(expr, env, _=None): # Optional third argument is ignored
+def scheme_eval(expr, env, _=None): # Optional third argument is ignored; used for tail recursion optimization
     """Evaluate Scheme expression EXPR in Frame ENV.
 
     >>> expr = read_line('(+ 2 2)')
@@ -34,9 +52,9 @@ def scheme_eval(expr, env, _=None): # Optional third argument is ignored
     else:
         # BEGIN PROBLEM 3
         "*** YOUR CODE HERE ***"
-        operator = scheme_eval(first, env)
+        operator = scheme_eval(first, env, False)
         validate_procedure(operator)
-        operands = rest.map(lambda x : scheme_eval(x, env))
+        operands = rest.map(lambda x : scheme_eval(x, env, False)) #! map is already defined in Pair as provided
         return scheme_apply(operator, operands, env)
         # END PROBLEM 3
 
@@ -49,30 +67,7 @@ def scheme_apply(procedure, args, env):
     if isinstance(procedure, BuiltinProcedure):
         # BEGIN PROBLEM 2
         "*** YOUR CODE HERE ***"
-        # * basic version:
-        # py_args = []
-        # while args is not nil:
-        #     py_args.append(args.first)
-        #     args = args.rest
-        # if procedure.need_env:
-        #     py_args.append(env)
-
-        # ! monkey patching version:
-        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
-            def _pair_iter__(obj):
-                """Convert the Pair object to an iterable for use with list()."""
-                current = obj
-                while isinstance(current, Pair):
-                    yield current.first
-                    current = current.rest
-                if current is nil:
-                    return
-                # If `rest` is not `nil`, we should raise an error for improper list
-                if current is not nil:
-                    raise TypeError('ill-formed list (not properly terminated with nil)')
-            Pair.__iter__ = _pair_iter__
-            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
-        py_args = list(args) + ([env] if procedure.need_env else [])
+        py_args = list(args) + ([env] if procedure.need_env else []) #! require monkey patched Pair
         # END PROBLEM 2
         try:
             # BEGIN PROBLEM 2
@@ -84,22 +79,7 @@ def scheme_apply(procedure, args, env):
     elif isinstance(procedure, LambdaProcedure):
         # BEGIN PROBLEM 9
         "*** YOUR CODE HERE ***"
-        # ! monkey patching version:
-        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
-            def _pair_iter__(obj):
-                """Convert the Pair object to an iterable for use with list()."""
-                current = obj
-                while isinstance(current, Pair):
-                    yield current.first
-                    current = current.rest
-                if current is nil:
-                    return
-                # If `rest` is not `nil`, we should raise an error for improper list
-                if current is not nil:
-                    raise TypeError('ill-formed list (not properly terminated with nil)')
-            Pair.__iter__ = _pair_iter__
-            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
-        lambdaFrame = procedure.env.make_child_frame(procedure.formals, args)
+        lambdaFrame = procedure.env.make_child_frame(procedure.formals, args) #! require monkey patched Pair
         lambdaFrame.define('_self', procedure)
         # // print("DEBUG: lambdaFrame created: ", lambdaFrame)
         # the created frame remains a child to the defining frame; 
@@ -116,22 +96,7 @@ def scheme_apply(procedure, args, env):
     elif isinstance(procedure, MuProcedure): # ! Mu means something else in the literature!
         # BEGIN PROBLEM 11
         "*** YOUR CODE HERE ***"
-        # ! monkey patching version:
-        if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
-            def _pair_iter__(obj):
-                """Convert the Pair object to an iterable for use with list()."""
-                current = obj
-                while isinstance(current, Pair):
-                    yield current.first
-                    current = current.rest
-                if current is nil:
-                    return
-                # If `rest` is not `nil`, we should raise an error for improper list
-                if current is not nil:
-                    raise TypeError('ill-formed list (not properly terminated with nil)')
-            Pair.__iter__ = _pair_iter__
-            nil.__class__.__iter__ = lambda self: iter([])  # Make nil iterable
-        muFrame = env.make_child_frame(procedure.formals, args)
+        muFrame = env.make_child_frame(procedure.formals, args) #! require monkey patched Pair
         muFrame.define('_self', procedure)
         # this is called dynamic scoping
         try:
@@ -163,7 +128,7 @@ def eval_all(expressions, env):
         return None
     exprs = expressions
     while exprs.rest is not nil:
-        scheme_eval(exprs.first, env)
+        scheme_eval(exprs.first, env, False)
         exprs = exprs.rest
     return scheme_eval(exprs.first, env, True)
     # END PROBLEM 6
@@ -190,7 +155,7 @@ def complete_apply(procedure, args, env):
     else:
         return val
 
-def optimize_tail_calls(unoptimized_scheme_eval):
+def optimize_tail_calls(unoptimized_scheme_eval: Callable[..., Any]):
     """Return a properly tail recursive version of an eval function."""
     def optimized_eval(expr, env, tail=False):
         """Evaluate Scheme expression EXPR in Frame ENV. If TAIL,
@@ -202,24 +167,14 @@ def optimize_tail_calls(unoptimized_scheme_eval):
         result = Unevaluated(expr, env)
         # BEGIN OPTIONAL PROBLEM 1
         "*** YOUR CODE HERE ***"
+        while isinstance(result, Unevaluated):
+            result = unoptimized_scheme_eval(result.expr, result.env)
+        return result
         # END OPTIONAL PROBLEM 1
     return optimized_eval
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ################################################################
 # Uncomment the following line to apply tail call optimization #
 ################################################################
 
-# scheme_eval = optimize_tail_calls(scheme_eval)
+scheme_eval = optimize_tail_calls(scheme_eval)
