@@ -8,6 +8,35 @@ from ucb import main, trace
 
 import scheme_forms
 
+# Define validation functions to avoid circular imports
+def validate_form(expr, min_len, max_len=None):
+    """Check that expr is a list with length between min_len and max_len."""
+    if expr is nil:
+        length = 0
+    else:
+        length = len(expr) if hasattr(expr, '__len__') else 0
+    if length < min_len:
+        raise SchemeError('too few operands in form')
+    if max_len is not None and length > max_len:
+        raise SchemeError('too many operands in form')
+
+def validate_formals(formals):
+    """Check that formals is a valid parameter list."""
+    symbols = set()
+    def check_formal(formal):
+        if not scheme_symbolp(formal):
+            raise SchemeError('non-symbol: {0}'.format(formal))
+        if formal in symbols:
+            raise SchemeError('duplicate symbol: {0}'.format(formal))
+        symbols.add(formal)
+    
+    while formals is not nil:
+        if not isinstance(formals, Pair):
+            check_formal(formals)
+            return
+        check_formal(formals.first)
+        formals = formals.rest
+
 # ! monkey patching Pair and nil
 if not hasattr(Pair, "__iter__"): # patch only once; should __iter__ be natively defined, monkey-patch doesn't occur
     def _pair_iter__(obj):
@@ -177,6 +206,116 @@ class EvalSequenceCont:
         # Ignore the value and continue with remaining expressions
         return eval_all_cps(self.remaining_exprs, self.env, self.cont)
 
+#######################
+# CPS Special Forms   #
+#######################
+
+def do_define_form_cps(expressions, env, cont):
+    """CPS version of define form"""
+    validate_form(expressions, 2)
+    signature = expressions.first
+    
+    if scheme_symbolp(signature):
+        # assigning a name to a value e.g. (define x (+ 1 2))
+        validate_form(expressions, 2, 2)
+        
+        def define_cont(value):
+            env.define(signature, value)
+            return cont(signature)
+        
+        return scheme_eval_cps(expressions.rest.first, env, False, define_cont)
+        
+    elif isinstance(signature, Pair) and scheme_symbolp(signature.first):
+        # defining a named procedure e.g. (define (f x y) (+ x y))
+        name = signature.first
+        formals = signature.rest
+        validate_formals(formals) 
+        body = expressions.rest
+        env.define(name, LambdaProcedure(formals, body, env))
+        return cont(name)
+    else:
+        bad_signature = signature.first if isinstance(signature, Pair) else signature
+        raise SchemeError('non-symbol: {0}'.format(bad_signature))
+
+def do_quote_form_cps(expressions, env, cont):
+    """CPS version of quote form"""
+    validate_form(expressions, 1, 1)
+    return cont(expressions.first)
+
+def do_begin_form_cps(expressions, env, cont):
+    """CPS version of begin form"""
+    validate_form(expressions, 1)
+    return eval_all_cps(expressions, env, cont)
+
+def do_lambda_form_cps(expressions, env, cont):
+    """CPS version of lambda form"""
+    validate_form(expressions, 2)
+    formals = expressions.first
+    validate_formals(formals)
+    body = expressions.rest
+    return cont(LambdaProcedure(formals, body, env))
+
+def do_if_form_cps(expressions, env, cont):
+    """CPS version of if form"""
+    validate_form(expressions, 2, 3)
+    
+    def if_cont(test_value):
+        if is_scheme_true(test_value):
+            return scheme_eval_cps(expressions.rest.first, env, True, cont)
+        elif len(expressions) == 3:
+            return scheme_eval_cps(expressions.rest.rest.first, env, True, cont)
+        else:
+            return cont(None)
+    
+    return scheme_eval_cps(expressions.first, env, False, if_cont)
+
+def do_and_form_cps(expressions, env, cont):
+    """CPS version of and form"""
+    def and_helper(exprs, env, cont):
+        if exprs is nil:
+            return cont(True)
+        elif exprs.rest is nil:
+            # Last expression - evaluate in tail position
+            return scheme_eval_cps(exprs.first, env, True, cont)
+        else:
+            def and_cont(value):
+                if is_scheme_false(value):
+                    return cont(False)
+                else:
+                    return and_helper(exprs.rest, env, cont)
+            return scheme_eval_cps(exprs.first, env, False, and_cont)
+    
+    return and_helper(expressions, env, cont)
+
+def do_or_form_cps(expressions, env, cont):
+    """CPS version of or form"""
+    def or_helper(exprs, env, cont):
+        if exprs is nil:
+            return cont(False)
+        elif exprs.rest is nil:
+            # Last expression - evaluate in tail position
+            return scheme_eval_cps(exprs.first, env, True, cont)
+        else:
+            def or_cont(value):
+                if is_scheme_true(value):
+                    return cont(value)
+                else:
+                    return or_helper(exprs.rest, env, cont)
+            return scheme_eval_cps(exprs.first, env, False, or_cont)
+    
+    return or_helper(expressions, env, cont)
+
+# CPS Special Forms Dictionary
+SPECIAL_FORMS_CPS = {
+    'define': do_define_form_cps,
+    'quote': do_quote_form_cps,
+    'begin': do_begin_form_cps,
+    'lambda': do_lambda_form_cps,
+    'if': do_if_form_cps,
+    'and': do_and_form_cps,
+    'or': do_or_form_cps,
+}
+
 def eval_operands_cps(operands, env, cont):
     """CPS version: Evaluate a list of operands and pass the result list to continuation"""
     if operands is nil:
@@ -213,14 +352,9 @@ def scheme_eval_cps(expr, env, tail=False, cont=None):
     if not scheme_listp(expr):
         raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
     first, rest = expr.first, expr.rest
-    if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
-        # For now, fall back to original special forms
-        # TODO: Convert special forms to CPS
-        try:
-            result = scheme_forms.SPECIAL_FORMS[first](rest, env)
-            return cont(result)
-        except Exception as e:
-            raise e
+    if scheme_symbolp(first) and first in SPECIAL_FORMS_CPS:
+        # Use CPS special forms
+        return SPECIAL_FORMS_CPS[first](rest, env, cont)
     else:
         # CPS version: evaluate operator, then operands, then apply
         return scheme_eval_cps(first, env, False, ApplyCont(rest, env, cont))
@@ -322,33 +456,128 @@ def optimize_tail_calls(unoptimized_scheme_eval: Callable[..., Any]):
         # END OPTIONAL PROBLEM 1
     return optimized_eval
 
-def optimize_tail_calls_cps(scheme_eval_cps_func: Callable[..., Any]):
-    """Return a CPS-compatible tail recursive version of scheme_eval_cps."""
-    def optimized_eval_cps(expr, env, tail=False, cont=None):
-        """CPS Evaluate Scheme expression EXPR in Frame ENV with continuation CONT."""
+def create_fully_trampolined_evaluator():
+    """Create a fully trampolined CPS evaluator that never uses Python recursion"""
+    
+    def trampoline_eval(expr, env, tail=False, cont=None):
+        """Fully trampolined evaluator"""
         if cont is None:
             cont = ReturnCont()
+        
+        # Work queue for trampolined execution
+        work_stack = [EvalCall(expr, env, tail, cont)]
+        
+        while work_stack:
+            current_work = work_stack.pop()
             
-        # For CPS, we use a trampoline for continuation calls
-        class TrampolineCont:
-            def __init__(self, original_cont, is_tail):
-                self.original_cont = original_cont
-                self.is_tail = is_tail
-            
-            def __call__(self, value):
-                if self.is_tail:
-                    return ContinuationCall(self.original_cont, value)
+            if isinstance(current_work, EvalCall):
+                # Handle evaluation
+                expr, env, tail, cont = current_work.expr, current_work.env, current_work.tail, current_work.cont
+                
+                # Evaluate atoms
+                if scheme_symbolp(expr):
+                    result = env.lookup(expr)
+                    work_stack.append(ContinuationCall(cont, result))
+                    continue
+                elif self_evaluating(expr):
+                    work_stack.append(ContinuationCall(cont, expr))
+                    continue
+                
+                # All non-atomic expressions are lists (combinations)
+                if not scheme_listp(expr):
+                    raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+                
+                first, rest = expr.first, expr.rest
+                if scheme_symbolp(first) and first in SPECIAL_FORMS_CPS:
+                    # Handle special forms directly (they create their own work)
+                    result = SPECIAL_FORMS_CPS[first](rest, env, cont)
+                    if isinstance(result, (ContinuationCall, EvalCall)):
+                        work_stack.append(result)
+                    else:
+                        work_stack.append(ContinuationCall(cont, result))
                 else:
-                    return self.original_cont(value)
+                    # Function application: evaluate operator first
+                    def operator_cont(operator):
+                        validate_procedure(operator)
+                        return eval_operands_trampolined(rest, env, 
+                                                       lambda operands: apply_trampolined(operator, operands, env, cont))
+                    
+                    work_stack.append(EvalCall(first, env, False, operator_cont))
+                    
+            elif isinstance(current_work, ContinuationCall):
+                # Handle continuation call
+                result = current_work.execute()
+                if isinstance(result, (ContinuationCall, EvalCall)):
+                    work_stack.append(result)
+                elif work_stack:  # More work to do
+                    continue
+                else:  # Final result
+                    return result
         
-        result = scheme_eval_cps_func(expr, env, tail, TrampolineCont(cont, tail))
+        return None  # Should not reach here
+    
+    def eval_operands_trampolined(operands, env, cont):
+        """Trampolined operand evaluation"""
+        if operands is nil:
+            return ContinuationCall(cont, nil)
         
-        # Trampoline loop for continuation calls
-        while isinstance(result, ContinuationCall):
-            result = result.execute()
-            
-        return result
-    return optimized_eval_cps
+        def first_cont(first_value):
+            if operands.rest is nil:
+                return ContinuationCall(cont, Pair(first_value, nil))
+            else:
+                return eval_operands_trampolined(operands.rest, env,
+                                               lambda rest_values: ContinuationCall(cont, Pair(first_value, rest_values)))
+        
+        return EvalCall(operands.first, env, False, first_cont)
+    
+    def apply_trampolined(procedure, args, env, cont):
+        """Trampolined application"""
+        validate_procedure(procedure)
+        
+        if isinstance(procedure, BuiltinProcedure):
+            py_args = list(args) + ([env] if procedure.need_env else [])
+            try:
+                result = procedure.py_func(*py_args)
+                return ContinuationCall(cont, result)
+            except TypeError as err:
+                raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
+        elif isinstance(procedure, LambdaProcedure):
+            lambdaFrame = procedure.env.make_child_frame(procedure.formals, args)
+            lambdaFrame.define('_self', procedure)
+            return eval_all_trampolined(procedure.body, lambdaFrame, cont)
+        elif isinstance(procedure, MuProcedure):
+            muFrame = env.make_child_frame(procedure.formals, args)
+            muFrame.define('_self', procedure)
+            return eval_all_trampolined(procedure.body, muFrame, cont)
+        else:
+            assert False, "Unexpected procedure: {}".format(procedure)
+    
+    def eval_all_trampolined(expressions, env, cont):
+        """Trampolined eval_all"""
+        if expressions is nil:
+            return ContinuationCall(cont, None)
+        
+        if expressions.rest is nil:
+            # Last expression - evaluate in tail position
+            return EvalCall(expressions.first, env, True, cont)
+        else:
+            # Not the last expression
+            def sequence_cont(value):
+                return eval_all_trampolined(expressions.rest, env, cont)
+            return EvalCall(expressions.first, env, False, sequence_cont)
+    
+    return trampoline_eval
+
+class EvalCall:
+    """A deferred evaluation call for the trampoline"""
+    def __init__(self, expr, env, tail, cont):
+        self.expr = expr
+        self.env = env
+        self.tail = tail
+        self.cont = cont
+
+# Create the fully trampolined evaluator
+scheme_eval_cps_fully_trampolined = create_fully_trampolined_evaluator()
 
 ################################################################
 # Uncomment the following line to apply tail call optimization #
@@ -357,4 +586,5 @@ def optimize_tail_calls_cps(scheme_eval_cps_func: Callable[..., Any]):
 scheme_eval = optimize_tail_calls(scheme_eval)
 
 # CPS version with advanced tail call optimization
-scheme_eval_cps_optimized = optimize_tail_calls_cps(scheme_eval_cps)
+# Use the fully trampolined version as the optimized evaluator
+scheme_eval_cps_optimized = scheme_eval_cps_fully_trampolined
