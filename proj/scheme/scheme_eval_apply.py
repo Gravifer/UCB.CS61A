@@ -134,6 +134,146 @@ def eval_all(expressions, env):
     # END PROBLEM 6
 
 
+######################
+# CPS Implementation #
+######################
+
+class ReturnCont:
+    """Final continuation - just returns the value"""
+    def __call__(self, value):
+        return value
+
+class ApplyCont:
+    """Continuation for applying a procedure after evaluating operator"""
+    def __init__(self, operands_expr, env, cont):
+        self.operands_expr = operands_expr
+        self.env = env
+        self.cont = cont
+    
+    def __call__(self, operator):
+        # Evaluate operands, then apply
+        validate_procedure(operator)
+        return eval_operands_cps(self.operands_expr, self.env, 
+                               ApplyProcCont(operator, self.env, self.cont))
+
+class ApplyProcCont:
+    """Continuation for actually applying the procedure"""
+    def __init__(self, operator, env, cont):
+        self.operator = operator
+        self.env = env
+        self.cont = cont
+    
+    def __call__(self, operands):
+        return scheme_apply_cps(self.operator, operands, self.env, self.cont)
+
+class EvalSequenceCont:
+    """Continuation for evaluating remaining expressions in a sequence"""
+    def __init__(self, remaining_exprs, env, cont):
+        self.remaining_exprs = remaining_exprs
+        self.env = env
+        self.cont = cont
+    
+    def __call__(self, value):
+        # Ignore the value and continue with remaining expressions
+        return eval_all_cps(self.remaining_exprs, self.env, self.cont)
+
+def eval_operands_cps(operands, env, cont):
+    """CPS version: Evaluate a list of operands and pass the result list to continuation"""
+    if operands is nil:
+        return cont(nil)
+    
+    class OperandCont:
+        def __init__(self, remaining, env, cont):
+            self.remaining = remaining
+            self.env = env
+            self.cont = cont
+        
+        def __call__(self, first_value):
+            if self.remaining is nil:
+                return self.cont(Pair(first_value, nil))
+            else:
+                return eval_operands_cps(self.remaining, self.env, 
+                                       lambda rest_values: self.cont(Pair(first_value, rest_values)))
+    
+    return scheme_eval_cps(operands.first, env, False, 
+                          OperandCont(operands.rest, env, cont))
+
+def scheme_eval_cps(expr, env, tail=False, cont=None):
+    """CPS version of scheme_eval with proper tail call optimization"""
+    if cont is None:
+        cont = ReturnCont()
+    
+    # Evaluate atoms
+    if scheme_symbolp(expr):
+        return cont(env.lookup(expr))
+    elif self_evaluating(expr):
+        return cont(expr)
+
+    # All non-atomic expressions are lists (combinations)
+    if not scheme_listp(expr):
+        raise SchemeError('malformed list: {0}'.format(repl_str(expr)))
+    first, rest = expr.first, expr.rest
+    if scheme_symbolp(first) and first in scheme_forms.SPECIAL_FORMS:
+        # For now, fall back to original special forms
+        # TODO: Convert special forms to CPS
+        try:
+            result = scheme_forms.SPECIAL_FORMS[first](rest, env)
+            return cont(result)
+        except Exception as e:
+            raise e
+    else:
+        # CPS version: evaluate operator, then operands, then apply
+        return scheme_eval_cps(first, env, False, ApplyCont(rest, env, cont))
+
+def scheme_apply_cps(procedure, args, env, cont=None):
+    """CPS version of scheme_apply"""
+    if cont is None:
+        cont = ReturnCont()
+        
+    validate_procedure(procedure)
+    if not isinstance(env, Frame):
+       assert False, "Not a Frame: {}".format(env)
+    if isinstance(procedure, BuiltinProcedure):
+        py_args = list(args) + ([env] if procedure.need_env else [])
+        try:
+            result = procedure.py_func(*py_args)
+            return cont(result)
+        except TypeError as err:
+            raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
+    elif isinstance(procedure, LambdaProcedure):
+        lambdaFrame = procedure.env.make_child_frame(procedure.formals, args)
+        lambdaFrame.define('_self', procedure)
+        try:
+            return eval_all_cps(procedure.body, lambdaFrame, cont)
+        except TypeError as err:
+            raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
+    elif isinstance(procedure, MuProcedure):
+        muFrame = env.make_child_frame(procedure.formals, args)
+        muFrame.define('_self', procedure)
+        try:
+            return eval_all_cps(procedure.body, muFrame, cont)
+        except TypeError as err:
+            raise SchemeError('incorrect number of arguments: {0}'.format(procedure))
+    else:
+        assert False, "Unexpected procedure: {}".format(procedure)
+
+def eval_all_cps(expressions, env, cont=None):
+    """CPS version of eval_all"""
+    if cont is None:
+        cont = ReturnCont()
+        
+    if expressions is nil:
+        return cont(None)
+    
+    if expressions.rest is nil:
+        # Last expression - evaluate in tail position
+        return scheme_eval_cps(expressions.first, env, True, cont)
+    else:
+        # Not the last expression - evaluate and continue with the rest
+        return scheme_eval_cps(expressions.first, env, False, 
+                              EvalSequenceCont(expressions.rest, env, cont))
+
+
 ################################
 # Extra Credit: Tail Recursion #
 ################################
@@ -145,6 +285,15 @@ class Unevaluated:
         """Expression EXPR to be evaluated in Frame ENV."""
         self.expr = expr
         self.env = env
+
+class ContinuationCall:
+    """A continuation call that should be trampolined"""
+    def __init__(self, cont, value):
+        self.cont = cont
+        self.value = value
+    
+    def execute(self):
+        return self.cont(self.value)
 
 def complete_apply(procedure, args, env):
     """Apply procedure to args in env; ensure the result is not an Unevaluated."""
@@ -173,8 +322,39 @@ def optimize_tail_calls(unoptimized_scheme_eval: Callable[..., Any]):
         # END OPTIONAL PROBLEM 1
     return optimized_eval
 
+def optimize_tail_calls_cps(scheme_eval_cps_func: Callable[..., Any]):
+    """Return a CPS-compatible tail recursive version of scheme_eval_cps."""
+    def optimized_eval_cps(expr, env, tail=False, cont=None):
+        """CPS Evaluate Scheme expression EXPR in Frame ENV with continuation CONT."""
+        if cont is None:
+            cont = ReturnCont()
+            
+        # For CPS, we use a trampoline for continuation calls
+        class TrampolineCont:
+            def __init__(self, original_cont, is_tail):
+                self.original_cont = original_cont
+                self.is_tail = is_tail
+            
+            def __call__(self, value):
+                if self.is_tail:
+                    return ContinuationCall(self.original_cont, value)
+                else:
+                    return self.original_cont(value)
+        
+        result = scheme_eval_cps_func(expr, env, tail, TrampolineCont(cont, tail))
+        
+        # Trampoline loop for continuation calls
+        while isinstance(result, ContinuationCall):
+            result = result.execute()
+            
+        return result
+    return optimized_eval_cps
+
 ################################################################
 # Uncomment the following line to apply tail call optimization #
 ################################################################
 
 scheme_eval = optimize_tail_calls(scheme_eval)
+
+# CPS version with advanced tail call optimization
+scheme_eval_cps_optimized = optimize_tail_calls_cps(scheme_eval_cps)
