@@ -9,7 +9,7 @@ from scheme_classes import *
 from scheme_forms import *
 from scheme_eval_apply import *
 from scheme_builtins import *
-from scheme_reader import *
+from scheme_reader import * # type: ignore
 from ucb import main, trace
 
 
@@ -28,7 +28,7 @@ def read_eval_print_loop(next_line, env, interactive=False, quiet=False,
         try:
             src = next_line()
             while src.more_on_line():
-                expression = scheme_read(src)
+                expression = scheme_read(src) # type: ignore
                 result = scheme_eval(expression, env)
                 if not quiet and result is not None:
                     print(repl_str(result))
